@@ -85,7 +85,7 @@ def patch_activations(
     )
 
     prediction = target_logits.argmax(dim=-1).squeeze()[:-1]
-    print('Output token :', target_model.to_string(prediction[-1]))
+    print('Target model output :', target_model.to_string(prediction))
 
     return
 
