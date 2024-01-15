@@ -22,5 +22,4 @@ class BaseOptions():
                                 help='Target model architecture.')
  
         
-
         return self.parser.parse_args()

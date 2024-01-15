@@ -16,7 +16,7 @@ def patchscope(opt, device):
     target_model = get_model(opt.target_model)
 
     source_prompt = "Amazon's former CEO attended Oscars"
-    target_prompt = "cat->cat; 135->135; brain->brain; ?"
+    target_prompt = "cat->cat; 135->135; hello->hello; ?"
     print('Source prompt:', source_prompt)
     print('Source token:', source_model.to_str_tokens(source_prompt)[4])
     source_position = 4
@@ -85,7 +85,7 @@ def patch_activations(
     )
 
     prediction = target_logits.argmax(dim=-1).squeeze()[:-1]
-    print(target_model.to_string(prediction[-1]))
+    print('Output token :', target_model.to_string(prediction[-1]))
 
     return
 
