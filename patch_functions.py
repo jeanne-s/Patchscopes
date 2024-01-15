@@ -18,24 +18,25 @@ def patchscope(opt, device):
     #source_tokens = model.to_tokens(source_prompt, prepend_bos=True)
     #source_tokens = source_tokens.to(device)
 
-    _, cache = source_model.run_with_cache(source_prompt)
-    print(cache)
+    _, source_cache = source_model.run_with_cache(source_prompt)
+    print(source_cache)
+
+    position = 0
+    layer = 2
+    
+    patch_residual_stream(target_model, position, layer, target_prompt, source_cache)
+
+    return 
 
 
 
-
-def get_model(model_name):
+def get_model(model_name: str):
     """
     Loads source or target model.
-
-    model_name: str ['pythia-70b-deduped']
     """
 
     if model_name == 'gpt2_small':
         model = HookedTransformer.from_pretrained("gpt2-small")
-
-    else:
-        raise exception_factory(ValueError, "Invalid model_name.")
 
     return model
 
@@ -44,19 +45,19 @@ def patch_residual_stream(
     target_model: HookedTransformer,
     position: int,
     layer: int,
-    target_tokens: Float[Tensor, 'batch pos'],
-    residual_stream_vector: Float[Tensor, 'd_model']
+    target_prompt: str,
+    source_cache: Float[Tensor, 'd_model']
 ):
     """
     Patches a residual stream vector into the target model.
     """
 
-    def hook_fn(residual_stream: Float[Tensor, "batch seq_len"],
+    def hook_fn(activations: Float[Tensor, "batch seq_len"],
                 hook: HookPoint
     ) -> TT["batch", "seq_len"]:
 
-        # modify residual_stream (can be inplace)
-        return residual_stream
+        # modify activations (can be inplace)
+        return activations
 
     target_model.run_with_hooks(
         target_tokens,
