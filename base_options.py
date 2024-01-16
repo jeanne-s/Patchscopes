@@ -10,15 +10,15 @@ class BaseOptions():
         self.parser.add_argument('--source_model', 
                                 '-M', 
                                 type=str, 
-                                default='gpt2_small',
-                                choices=['gpt2_small', 'pythia-6.9b'], 
+                                default='gpt2-small',
+                                choices=['gpt2-small', 'pythia-6.9b'], 
                                 help='Source model architecture.')
 
         self.parser.add_argument('--target_model', 
                                 '-M*', 
                                 type=str, 
-                                default='gpt2_small',
-                                choices=['gpt2_small', 'pythia-6.9b'], 
+                                default='gpt2-small',
+                                choices=['gpt2-small', 'pythia-6.9b'], 
                                 help='Target model architecture.')
  
         
