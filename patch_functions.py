@@ -44,7 +44,6 @@ def patchscope(opt, device):
     return 
 
 
-
 def get_model(model_name: str = 'gpt2-small') -> HookedTransformer:
     """
     Loads source or target model.
