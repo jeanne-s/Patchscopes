@@ -1,5 +1,5 @@
 from transformers import GPTNeoXForCausalLM, AutoTokenizer, LlamaForCausalLM, LlamaTokenizer
-from transformer_lens import utils, HookedTransformer, ActivationCache, patching
+from transformer_lens import utils, HookedTransformer, ActivationCache, patching, evals
 from transformer_lens.hook_points import HookPoint
 from transformer_lens.utils import get_act_name
 import torch
@@ -14,23 +14,23 @@ def patchscope(opt, device):
 
     source_model = get_model(opt.source_model)
     target_model = get_model(opt.target_model)
+    model_sanity_check(target_model)
 
-    source_prompt = "L'homme a planté un arbre sur la grève" #"Amazon's former CEO attended Oscars"
-    target_prompt = "cat->cat; 135->135; hello->hello; ?"
-    print('Source prompt:', source_prompt)
+    source_prompt = "Amazon's former CEO attended Oscars" #"L'homme a planté un arbre sur la grève"
+    target_prompt = "cat->cat; 135->135; hello->hello; black->black; shoe->shoe; start->start; mean->mean; ?" #"chat->chat; 135->135; bonjour->bonjour; ?"
+    print('Source prompt:', source_prompt, source_model.to_str_tokens(source_prompt))
     print('Source token:', source_model.to_str_tokens(source_prompt)[4])
     source_position = 4
 
-    print('Target prompt:', target_prompt)
-    print('Target token:', target_model.to_str_tokens(target_prompt)[13])
-    target_position = 13
+    print('Target prompt:', target_prompt, target_model.to_str_tokens(target_prompt))
+    print('Target token:', target_model.to_str_tokens(target_prompt)[-1])
+    target_position = len(target_model.to_str_tokens(target_prompt))-1
 
-    source_layer = 4
+    source_layer = 0
     target_layer = 0
     print(f'Source layer: {source_layer}, Target layer: {target_layer}')
 
     _, source_cache = source_model.run_with_cache(source_prompt)
-
     
     patch_activations(
         target_model, 
@@ -41,6 +41,8 @@ def patchscope(opt, device):
         target_prompt, 
         source_cache
     )
+
+    eval_pile_dataset(target_model)
 
     return 
 
@@ -86,9 +88,21 @@ def patch_activations(
 
     prediction = target_logits.argmax(dim=-1).squeeze()[:-1]
     print('Target model output :', target_model.to_string(prediction))
-
+    print(target_model.to_str_tokens(target_model.to_string(prediction)))
     return
 
 
+def model_sanity_check(model: HookedTransformer):
+    loss = evals.sanity_check(model)
+    if loss < 5:
+        print(f'{model.cfg.model_name} is probably OK.')
+    else:
+        print(f'{model.cfg.model_name} has a high loss. Maybe something went wrong.')
+    return
 
 
+def eval_pile_dataset(model: HookedTransformer):
+    pile_data_loader = evals.make_pile_data_loader(model.tokenizer, batch_size=8)
+    eval_result = evals.evaluate_on_dataset(model, pile_data_loader)
+    print("Eval on Pile dataset:", eval_result)
+    return

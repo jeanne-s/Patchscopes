@@ -15,5 +15,5 @@ echo "CUDA_DEVICE: $CUDA_VISIBLE_DEVICES"
 
 echo "computation start $(date)"
 cd /scratch2/jsalle/Patchscope/
-/scratch2/jsalle/.conda/envs/patchscope_venv/bin/python3 main.py
-                                                            
+/scratch2/jsalle/.conda/envs/patchscope_venv/bin/python3 main.py -M pythia-6.9b -M* pythia-6.9b
+echo "computation end $(date)"
