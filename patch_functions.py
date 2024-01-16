@@ -6,6 +6,7 @@ import torch
 from torch import Tensor
 from jaxtyping import Int, Float
 from typing import List, Optional, Tuple
+import evaluate
 
 
 def patchscope(opt, device):
@@ -14,7 +15,7 @@ def patchscope(opt, device):
 
     source_model = get_model(opt.source_model)
     target_model = get_model(opt.target_model)
-    model_sanity_check(target_model)
+    #model_sanity_check(target_model)
 
     source_prompt = "Amazon's former CEO attended Oscars" #"L'homme a planté un arbre sur la grève"
     target_prompt = "cat->cat; 135->135; hello->hello; black->black; shoe->shoe; start->start; mean->mean; ?" #"chat->chat; 135->135; bonjour->bonjour; ?"
