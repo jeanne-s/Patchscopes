@@ -1,2 +1,2 @@
 # Patchscope
-Implementation of the Patchscope paper (arXiv:2401.06102)
+Implementation of the Patchscopes paper (arXiv:2401.06102). Work in progress.
