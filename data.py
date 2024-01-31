@@ -2,9 +2,12 @@ import os
 import json
 from datasets import load_dataset
 import pandas as pd 
+import numpy as np
 from tqdm import tqdm
 import requests
 import config
+from transformer_lens import utils, HookedTransformer
+from base_options import *
 
 
 def get_wikitext_103(split='train', n_samples=1):
@@ -62,22 +65,38 @@ def get_S_from_wikitext(subjects_list, task):
     return 
 
 
-def truncate_samples(task, model):
+def truncate_samples(task='country_currency', model_name='gpt2-small'):
     task_type = get_task_type(task) 
     data_path = os.path.join('data', get_task_type(task), task)
+    samples_df = pd.DataFrame(columns=['subject', 'S'])
 
-    # [TODO]
-    # pour tous les json
-        # subject = title.replace('.json', '')
-        # go through rows
-        # trouve occurence de subject
-        # select 20 tokens avant (donc il faut connaître le modèle)
+    model = HookedTransformer.from_pretrained(model_name) # à retirer et intégrer dans la pipeline
+
+    for f in os.listdir(data_path):
+        subject = f.replace('.json', '')
+        with open(os.path.join(data_path, f)) as json_file:
+            dataset_excerpts = json.load(json_file)['rows']
+        
+        for r in dataset_excerpts:
+            text = r['row']['text']
+            start = np.random.rand()*len(text)
+            index = text.find(subject, int(start)) # returns the lowest index of the substring mentioned
+            tokens = model.to_str_tokens(text[index-200: index+len(subject)])
+            tokens = tokens[-20:]
+            print(tokens)
+            # select 20 tokens avant 
+            # ajouter a un dataframe
+            break
+        break
+
         # vérifier que le model "correctly encodes the tuple"
-        # save to a dataframe (subject, S)
+        # vérifier qu'on a le bon nombre pour chaque sujet
+        # save to a dataframe (subject, S) pd.concatenate(samples_df, temp_df, ignore_index=True)
 
     # return dataframe de prompt
 
 
-subjects_list, objects_list = get_subobj_from_json()
-get_S_from_wikitext(subjects_list, task='country_currency')
+#subjects_list, objects_list = get_subobj_from_json()
+#get_S_from_wikitext(subjects_list, task='country_currency')
 
+truncate_samples()

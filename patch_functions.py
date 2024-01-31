@@ -13,8 +13,8 @@ def patchscope(opt, device):
 
     torch.set_grad_enabled(False) # To save GPU memory because we only do inference
 
-    source_model = get_model(opt.source_model)
-    target_model = get_model(opt.target_model)
+    source_model = get_model(opt.source_model, device)
+    target_model = get_model(opt.target_model, device)
     #model_sanity_check(target_model)
 
     source_prompt = "Amazon's former CEO attended Oscars" #"L'homme a planté un arbre sur la grève"
@@ -48,13 +48,13 @@ def patchscope(opt, device):
     return 
 
 
-def get_model(model_name: str = 'gpt2-small') -> HookedTransformer:
+def get_model(model_name: str = 'gpt2-small', device=None) -> HookedTransformer:
     """
     Loads source or target model.
 
     model_name: ['gpt2-small', 'pythia-6.9b']
     """
-    return HookedTransformer.from_pretrained(model_name)
+    return HookedTransformer.from_pretrained(model_name, device=device)
 
 
 def patch_activations(
