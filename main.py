@@ -10,4 +10,9 @@ if __name__ == '__main__':
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print('device =', device, '\n------------------')
-    patchscope(opt, device)
+
+    if opt.experiment=='extraction':
+        extraction_of_specific_attributes(opt, device)
+
+    else:
+        patchscope(opt, device)

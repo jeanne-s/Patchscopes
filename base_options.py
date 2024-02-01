@@ -11,15 +11,28 @@ class BaseOptions():
                                 '-M', 
                                 type=str, 
                                 default='gpt2-small',
-                                choices=['gpt2-small', 'pythia-6.9b'], 
+                                choices=['gpt2-small', 'pythia-6.9b', 'gpt-j-6B'], 
                                 help='Source model architecture.')
 
         self.parser.add_argument('--target_model', 
                                 '-M*', 
                                 type=str, 
                                 default='gpt2-small',
-                                choices=['gpt2-small', 'pythia-6.9b'], 
+                                choices=['gpt2-small', 'pythia-6.9b', 'gpt-j-6B'], 
                                 help='Target model architecture.')
+
+        self.parser.add_argument('--experiment',
+                                '-e',
+                                type=str,
+                                default='extraction',
+                                choices=['extraction'],
+                                help="Type of experiment, as described in paragraph '4. Experiments'.")
+
+        self.parser.add_argument('--task',
+                                '-t',
+                                type=str,
+                                default='country_currency',
+                                help="Task label from the relations dataset by Hernandez et al. 2023. for the experiment '4.2 Extraction of Specific Attributes")
  
         
         return self.parser.parse_args()
