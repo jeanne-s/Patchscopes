@@ -39,64 +39,71 @@ def get_subobj_from_json(task='country_currency'):
         subjects_list.append(e['subject'])
         objects_list.append(e['object'])
 
-    return subjects_list, objects_list
+    relation = relations_dict['properties']['range_name']
+
+    return subjects_list, objects_list, relation
 
 
-def get_S_from_wikitext(subjects_list, task):
+def get_S_from_wikitext(subjects_list, objects_list, task):
+
+    data_path = os.path.join('data', get_task_type(task), task)
+    samples_df = pd.DataFrame(columns=['subject', 'S'])
 
     headers = {"Authorization": f"Bearer {config.api_key}"}
     def query():
         response = requests.get(API_URL, headers=headers)
         return response.json()
 
-    for sub in ['United Kingdom']:#subjects_list:
-        file_name = os.path.join('data', get_task_type(task), task, f'{sub.split()[0]}.json')
-        if ' ' in sub:
-            file_name = os.path.join('data', get_task_type(task), task, f'{sub.split()[0]}_{sub.split()[1]}.json')
-            sub = f'%22'+ sub.split()[0] +'%20'+ sub.split()[1] +'%22'
-        query_text = sub
-        print(query_text)
-        API_URL = f"https://datasets-server.huggingface.co/search?dataset=iohadrubin%2Fwikitext-103-raw-v1&config=default&split=train&query={query_text}&offset=0&length=30"
-        data = query()
+    for idx, sub in enumerate(tqdm(subjects_list)):
+        print(sub)
+        fetch_n = 0
 
-        with open(file_name, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=4)
-    
+        while (samples_df['subject'].values == sub).sum() < 5 and fetch_n < 20:
+            file_name = os.path.join('data', get_task_type(task), task, f'{sub.split()[0]}.json')
+            if ' ' in sub:
+                file_name = os.path.join('data', get_task_type(task), task, f'{sub.split()[0]}_{sub.split()[1]}.json')
+                sub_form = '%22'+ sub.split()[0] +'%20'+ sub.split()[1] +'%22'
+                query_text = sub_form #+' '+ objects_list[idx]
+            else:
+                query_text = sub #+' '+ objects_list[idx]
+            API_URL = f"https://datasets-server.huggingface.co/search?dataset=iohadrubin%2Fwikitext-103-raw-v1&config=default&split=train&query={query_text}&offset=0&length=100"
+            data = query() # dict{'rows':{'row': {'text': .....}}}
+
+            for r in data['rows']:
+                text = text = r['row']['text']
+                obj_index = text.rfind(objects_list[idx].lower())
+                if obj_index == -1:
+                    continue
+                else:
+                    subj_index = text.rfind(sub, 0, obj_index)
+                    if subj_index != -1:
+                        samples_df = pd.concat([samples_df, 
+                                                pd.DataFrame(
+                                                    {'subject': sub, 
+                                                    'S': text[subj_index: obj_index+len(objects_list[idx])]},
+                                                    index=[0])
+                        ])
+                        samples_df.to_csv(f'data/input_prompts_{task}.csv', index=False)
+            fetch_n += 1
+            print(fetch_n)
+
+                
+    print(samples_df['subject'].value_counts())
+    samples_df.to_csv(f'{data_path}/input_prompts_{task}.csv', index=False)
     return 
 
 
-def truncate_samples(task='country_currency', model_name='gpt2-small'):
-    task_type = get_task_type(task) 
-    data_path = os.path.join('data', get_task_type(task), task)
-    samples_df = pd.DataFrame(columns=['subject', 'S'])
+def clean_input_prompts(task='country_currency', model_name='gpt2-small'):
+    input_df = pd.read_csv(f'data/input_prompts_{task}.csv')
+    print(input_df)
 
-    model = HookedTransformer.from_pretrained(model_name) # à retirer et intégrer dans la pipeline
-
-    for f in os.listdir(data_path):
-        subject = f.replace('.json', '')
-        with open(os.path.join(data_path, f)) as json_file:
-            dataset_excerpts = json.load(json_file)['rows']
-        
-        for r in dataset_excerpts:
-            text = r['row']['text']
-            start = np.random.rand()*len(text)
-            index = text.find(subject, int(start)) # returns the lowest index of the substring mentioned
-            tokens = model.to_str_tokens(text[index-200: index+len(subject)])
-            tokens = tokens[-20:]
-            print(tokens)
-            # select 20 tokens avant 
-            # ajouter a un dataframe
-            break
-        break
-
-        # vérifier que le model "correctly encodes the tuple"
-        # vérifier qu'on a le bon nombre pour chaque sujet
-        # save to a dataframe (subject, S) pd.concatenate(samples_df, temp_df, ignore_index=True)
-
-    # return dataframe de prompt
+    return
+    
 
 
-#subjects_list, objects_list = get_subobj_from_json()
-#get_S_from_wikitext(subjects_list, task='country_currency')
+#subjects_list, objects_list, relation = get_subobj_from_json()
+#subjects_list = subjects_list[2:]
+#objects_list = objects_list[2:]
+#get_S_from_wikitext(subjects_list, objects_list, task='country_currency')
 
-truncate_samples()
+clean_input_prompts()
