@@ -47,7 +47,7 @@ def get_subobj_from_json(task='country_currency'):
 def get_S_from_wikitext(subjects_list, objects_list, task):
 
     data_path = os.path.join('data', get_task_type(task), task)
-    samples_df = pd.DataFrame(columns=['subject', 'S'])
+    samples_df = pd.DataFrame(columns=['subject', 'object', 'S'])
 
     headers = {"Authorization": f"Bearer {config.api_key}"}
     def query():
@@ -56,54 +56,70 @@ def get_S_from_wikitext(subjects_list, objects_list, task):
 
     for idx, sub in enumerate(tqdm(subjects_list)):
         print(sub)
+        obj = objects_list[idx]
         fetch_n = 0
 
-        while (samples_df['subject'].values == sub).sum() < 5 and fetch_n < 20:
+        while (samples_df['subject'].values == sub).sum() < 20 and fetch_n < 60:
             file_name = os.path.join('data', get_task_type(task), task, f'{sub.split()[0]}.json')
             if ' ' in sub:
                 file_name = os.path.join('data', get_task_type(task), task, f'{sub.split()[0]}_{sub.split()[1]}.json')
                 sub_form = '%22'+ sub.split()[0] +'%20'+ sub.split()[1] +'%22'
-                query_text = sub_form #+' '+ objects_list[idx]
+                query_text = sub_form 
             else:
-                query_text = sub #+' '+ objects_list[idx]
+                query_text = sub 
             API_URL = f"https://datasets-server.huggingface.co/search?dataset=iohadrubin%2Fwikitext-103-raw-v1&config=default&split=train&query={query_text}&offset=0&length=100"
             data = query() # dict{'rows':{'row': {'text': .....}}}
 
             for r in data['rows']:
                 text = text = r['row']['text']
-                obj_index = text.rfind(objects_list[idx].lower())
+                obj_index = text.rfind(obj.lower())
                 if obj_index == -1:
                     continue
                 else:
                     subj_index = text.rfind(sub, 0, obj_index)
                     if subj_index != -1:
-                        samples_df = pd.concat([samples_df, 
-                                                pd.DataFrame(
-                                                    {'subject': sub, 
-                                                    'S': text[subj_index: obj_index+len(objects_list[idx])]},
-                                                    index=[0])
-                        ])
-                        samples_df.to_csv(f'data/input_prompts_{task}.csv', index=False)
+                        if text[subj_index:subj_index+len(sub)+1]==sub+' ' and text[obj_index-1:obj_index+len(obj)]==' '+obj.lower():
+                            samples_df = pd.concat([samples_df, 
+                                                    pd.DataFrame(
+                                                        {'subject': sub,
+                                                        'object': obj, 
+                                                        'S': text[subj_index: obj_index+len(obj)]},
+                                                        index=[0])
+                            ])
+                            samples_df.to_csv(f'data/input_prompts_{task}.csv', index=False)
             fetch_n += 1
-            print(fetch_n)
+            if fetch_n==60: print(f'{sub} not found') 
 
-                
-    print(samples_df['subject'].value_counts())
+    print(f'Saved {data_path}/input_prompts_{task}.csv')
+    print(samples_df['subject'].value_counts())                
     samples_df.to_csv(f'{data_path}/input_prompts_{task}.csv', index=False)
     return 
 
 
 def clean_input_prompts(task='country_currency', model_name='gpt2-small'):
     input_df = pd.read_csv(f'data/input_prompts_{task}.csv')
-    print(input_df)
+    output_df = pd.DataFrame(columns=['subject', 'object', 'S'])
+    model = HookedTransformer.from_pretrained(model_name, device=None)
+    
+    for index, row in input_df.iterrows():
+        subj, obj, text = row['subject'], row['object'], row['S']
+        tokens = model.to_str_tokens(text)
+        if subj in tokens[-20:]:
+            print(tokens[-20:])
+            output_df = pd.concat([output_df, pd.DataFrame({'subject': subj,
+                                                            'object': obj, 
+                                                            'S': text},
+                                                            index=[0])
+            ])
 
+    print(output_df['subject'].value_counts())
+    output_df.to_csv(f'data/cleaned_input_prompts_{task}.csv', index=False)
     return
     
 
 
-#subjects_list, objects_list, relation = get_subobj_from_json()
-#subjects_list = subjects_list[2:]
-#objects_list = objects_list[2:]
-#get_S_from_wikitext(subjects_list, objects_list, task='country_currency')
+
+subjects_list, objects_list, relation = get_subobj_from_json()
+get_S_from_wikitext(subjects_list, objects_list, task='country_currency')
 
 clean_input_prompts()
