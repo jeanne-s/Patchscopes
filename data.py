@@ -59,7 +59,7 @@ def get_S_from_wikitext(subjects_list, objects_list, task):
         obj = objects_list[idx]
         fetch_n = 0
 
-        while (samples_df['subject'].values == sub).sum() < 5 and fetch_n < 100:
+        while (samples_df['subject'].values == sub).sum() < 5 and fetch_n < 60:
             file_name = os.path.join('data', get_task_type(task), task, f'{sub.split()[0]}.json')
             if ' ' in sub:
                 file_name = os.path.join('data', get_task_type(task), task, f'{sub.split()[0]}_{sub.split()[1]}.json')
@@ -68,7 +68,7 @@ def get_S_from_wikitext(subjects_list, objects_list, task):
             else:
                 query_text = sub 
             offset = fetch_n*100
-            API_URL = f"https://datasets-server.huggingface.co/search?dataset=iohadrubin%2Fwikitext-103-raw-v1&config=default&split=train&query={query_text}&offset={offset}&length=150"
+            API_URL = f"https://datasets-server.huggingface.co/search?dataset=iohadrubin%2Fwikitext-103-raw-v1&config=default&split=train&query={query_text}&offset={offset}&length=100"
             data = query() # dict{'rows':{'row': {'text': .....}}}
 
             for r in data['rows']:
@@ -84,7 +84,7 @@ def get_S_from_wikitext(subjects_list, objects_list, task):
                                                     pd.DataFrame(
                                                         {'subject': sub,
                                                         'object': obj, 
-                                                        'S': text[subj_index-min(0, subj_index-300): obj_index+len(obj)]},
+                                                        'S': text[subj_index-max(0, subj_index-300): obj_index+len(obj)]},
                                                         index=[0])
                             ])
                             samples_df.drop_duplicates() # removes duplicate rows

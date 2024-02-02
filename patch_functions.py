@@ -7,6 +7,7 @@ from torch import Tensor
 from jaxtyping import Int, Float
 from typing import List, Optional, Tuple
 import seaborn as sns
+import matplotlib.pyplot as plt
 from data import *
 
 
@@ -45,8 +46,6 @@ def patchscope(opt,
         target_prompt, 
         source_cache
     )
-
-    eval_pile_dataset(target_model)
 
     return 
 
@@ -92,7 +91,7 @@ def extraction_of_specific_attributes(opt, device):
         
             for target_layer in target_layers: 
 
-                predicted_tokens = patch_activations(
+                predicted_tokens, _ = patch_activations(
                                         target_model=target_model, 
                                         source_position=source_position, 
                                         source_layer=source_layer, 
@@ -130,6 +129,59 @@ def extraction_of_specific_attributes(opt, device):
     accuracy_df.to_csv(f'data/extraction_accuracies_{opt.task}.csv', index=False)
 
     return
+
+
+def logitlens(opt, device):
+    
+    source_model = get_model(opt.source_model, device)
+    target_model = get_model(opt.source_model, device)
+
+    source_prompt = target_prompt = """Recent work has demonstrated substantial gains on many NLP tasks and benchmarks by pre-training
+    on a large corpus of text followed by fine-tuning on a specific task. While typically task-agnostic
+    in architecture, this method still requires task-specific fine-tuning datasets of thousands or tens of
+    thousands of examples. By contrast, humans can generally perform a new language task from only
+    a few examples or from simple instructions – something which current NLP systems still largely
+    struggle to do. Here we show that scaling up language models greatly improves task-agnostic,
+    few-shot performance, sometimes even reaching competitiveness with prior state-of-the-art finetuning approaches. Specifically, we train GPT-3, an autoregressive language model with 175 billion
+    parameters,""".replace("\n", " ")
+
+    logits_df = pd.DataFrame(columns=['layer', 'position', 'logit', 'token'])
+
+    _, source_cache = source_model.run_with_cache(source_prompt)
+    source_tokens = source_model.to_tokens(source_prompt)
+    nb_tokens = source_tokens.shape[-1]
+    source_positions = np.arange(nb_tokens-10, nb_tokens, 1)
+    source_layers = np.arange(0, source_model.cfg.n_layers, dtype=int)
+
+    for source_position in source_positions:
+        print(source_position)
+
+        for source_layer in source_layers:
+
+            predicted_tokens, target_logits = patch_activations(
+                target_model=target_model, 
+                source_position=source_position, 
+                source_layer=source_layer, 
+                target_position=source_position,
+                target_layer=source_model.cfg.n_layers-1,
+                target_prompt=target_prompt, 
+                source_cache=source_cache
+            )
+        
+            next_logit = torch.max(target_logits[0, source_position, :])
+            logits_df = pd.concat([logits_df,
+                                   pd.DataFrame({'layer': source_layer,
+                                                 'position': source_position,
+                                                 'logit': next_logit,
+                                                 'token': predicted_tokens[source_position].item()},
+                                                 index=[0])
+                    ])
+    
+    df_wide = logits_df.pivot_table(index='layer', columns='position', values='logit')
+
+    fig = sns.heatmap(df_wide, annot=True)
+    plt.savefig("figures/logitlens_gpt-3.png")
+    return 
 
 
 def get_model(model_name: str = 'gpt2-small', device=None) -> HookedTransformer:
@@ -178,7 +230,7 @@ def patch_activations(
     target_prompt = target_prompt + target_model.to_string(prediction)
     #print('target_prompt', target_prompt)
 
-    return predicted_tokens
+    return predicted_tokens, target_logits
 
 
 def model_sanity_check(model: HookedTransformer):

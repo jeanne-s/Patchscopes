@@ -13,6 +13,8 @@ if __name__ == '__main__':
 
     if opt.experiment=='extraction':
         extraction_of_specific_attributes(opt, device)
+    elif opt.experiment=='logitlens':
+        logitlens(opt, device)
 
     else:
         patchscope(opt, device)

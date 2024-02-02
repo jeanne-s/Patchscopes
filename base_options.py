@@ -25,8 +25,8 @@ class BaseOptions():
                                 '-e',
                                 type=str,
                                 default='extraction',
-                                choices=['extraction'],
-                                help="Type of experiment, as described in paragraph '4. Experiments'.")
+                                choices=['extraction', 'logitlens'],
+                                help="Type of experiment. 'extraction': paragraph 4.2. 'logitlens' (nostalgebraist 2020). ")
 
         self.parser.add_argument('--task',
                                 '-t',
