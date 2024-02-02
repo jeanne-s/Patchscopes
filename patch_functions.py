@@ -82,7 +82,8 @@ def extraction_of_specific_attributes(opt, device):
         #print('Subject', subject, '---', source_model.to_str_tokens(S))
 
         # Get source position
-        source_position = source_model.get_token_position(subject, S)
+        tokenized_subject = source_model.to_str_tokens(source_model.to_tokens(subject))[-1]
+        source_position = source_model.get_token_position(tokenized_subject, S)
         print('source_position', source_position)
         _, source_cache = source_model.run_with_cache(S)
 
@@ -156,7 +157,10 @@ def patch_activations(
         target_activations[:,target_position,:] = source_cache[:,source_position,:]
         return target_activations
 
+    #target_prompt = target_model.generate(target_prompt, max_new_tokens=20)
+
     for i in range (0, max_new_tokens):
+        print('i', i)   
         target_logits = target_model.run_with_hooks(
             target_prompt,
             return_type="logits",
@@ -167,6 +171,7 @@ def patch_activations(
         prediction = target_logits.argmax(dim=-1).squeeze()[:-1]
         predicted_tokens.append(prediction)
         target_prompt = target_prompt + target_model.to_string(prediction)
+        print(target_prompt)
 
 
     #print('Target model output :', target_model.to_string(prediction))
