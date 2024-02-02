@@ -59,7 +59,7 @@ def get_S_from_wikitext(subjects_list, objects_list, task):
         obj = objects_list[idx]
         fetch_n = 0
 
-        while (samples_df['subject'].values == sub).sum() < 100 and fetch_n < 100:
+        while (samples_df['subject'].values == sub).sum() < 5 and fetch_n < 100:
             file_name = os.path.join('data', get_task_type(task), task, f'{sub.split()[0]}.json')
             if ' ' in sub:
                 file_name = os.path.join('data', get_task_type(task), task, f'{sub.split()[0]}_{sub.split()[1]}.json')
@@ -68,7 +68,7 @@ def get_S_from_wikitext(subjects_list, objects_list, task):
             else:
                 query_text = sub 
             offset = fetch_n*100
-            API_URL = f"https://datasets-server.huggingface.co/search?dataset=iohadrubin%2Fwikitext-103-raw-v1&config=default&split=train&query={query_text}&offset={offset}&length=100"
+            API_URL = f"https://datasets-server.huggingface.co/search?dataset=iohadrubin%2Fwikitext-103-raw-v1&config=default&split=train&query={query_text}&offset={offset}&length=150"
             data = query() # dict{'rows':{'row': {'text': .....}}}
 
             for r in data['rows']:
@@ -84,20 +84,17 @@ def get_S_from_wikitext(subjects_list, objects_list, task):
                                                     pd.DataFrame(
                                                         {'subject': sub,
                                                         'object': obj, 
-                                                        'S': text[subj_index-min(0, subj_index-200): obj_index+len(obj)]},
+                                                        'S': text[subj_index-min(0, subj_index-300): obj_index+len(obj)]},
                                                         index=[0])
                             ])
+                            samples_df.drop_duplicates() # removes duplicate rows
                             samples_df.to_csv(f'data/input_prompts_{task}.csv', index=False)
             fetch_n += 1
             if fetch_n==60: print(f'{sub} not found') 
 
-    print(f'Saved {data_path}/input_prompts_{task}.csv')
-    print(samples_df['subject'].value_counts())                
+    print(samples_df['subject'].value_counts()) 
     samples_df.to_csv(f'{data_path}/input_prompts_{task}.csv', index=False)
-
-    #[TODO]:remove duplicates
-
-
+    print(f'Saved {data_path}/input_prompts_{task}.csv')
     return 
 
 
@@ -127,4 +124,4 @@ if __name__ == '__main__':
     subjects_list, objects_list, relation = get_subobj_from_json()
     get_S_from_wikitext(subjects_list, objects_list, task='country_currency')
 
-    clean_input_prompts()
+    #clean_input_prompts()

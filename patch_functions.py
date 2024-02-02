@@ -56,10 +56,8 @@ def extraction_of_specific_attributes(opt, device):
     Performs the experiment described in paragraph '4.2 Extraction of Specific Attributes'.
     Generates and saves the corresponding figure (see Figure 3 from the paper) in 
     ```figures/extraction/{task}```.
-    
-    Input prompt: '... {subject} ... {object}'
-    Output prompt: 
     """
+
     print(f'----- Extraction of specific attributes (task: {opt.task}) ----- ')
 
     source_model = get_model(opt.source_model, device)
@@ -78,48 +76,58 @@ def extraction_of_specific_attributes(opt, device):
 
     for index, row in input_prompts.iterrows(): # for each input prompt
         subject = row['subject']
+        object = row['object']
         S = row['S']
-        #print('Subject', subject, '---', source_model.to_str_tokens(S))
+        print('Subject:', subject, 'Object:', object)
+        print('S', S[:30])
 
         # Get source position
         tokenized_subject = source_model.to_str_tokens(source_model.to_tokens(subject))[-1]
         source_position = source_model.get_token_position(tokenized_subject, S)
-        print('source_position', source_position)
+        #print('source_position', source_position)
+
         _, source_cache = source_model.run_with_cache(S)
 
-        for source_layer in source_layers: # for each source layer
-            #print('source_layer', l)
+        for source_layer in source_layers: 
         
-            for target_layer in target_layers: # for each target layer
-                #print('target_layer', l_star)
+            for target_layer in target_layers: 
 
                 predicted_tokens = patch_activations(
-                                        target_model, 
-                                        source_position, 
-                                        source_layer, 
-                                        target_position,
-                                        target_layer,
-                                        target_prompt, 
-                                        source_cache
+                                        target_model=target_model, 
+                                        source_position=source_position, 
+                                        source_layer=source_layer, 
+                                        target_position=target_position,
+                                        target_layer=target_layer,
+                                        target_prompt=target_prompt, 
+                                        source_cache=source_cache
                 )
-                break
                 
-                #faire les 20 next tokens
-                #if obj in 20 next tokens:
-                    # accuracy_df = pd.concatenate(accuracy_df,
-                    #                             pd.DataFrame({'subject': subject,
-                    #                                          'source_layer': l,
-                    #                                          'accuracy': 1}))
-                    # break
-                #elif l_star==len(target_layer)-1:
-                    # accuracy_df = pd.concatenate(accuracy_df,
-                    #                             pd.DataFrame({'subject': subject,
-                    #                                          'source_layer': l,
-                    #                                          'accuracy': 0})
+                predicted_tokens = predicted_tokens.to(torch.int)
+                if target_model.to_tokens(object)[-1][-1].item() in predicted_tokens:
+                    print(target_model.to_str_tokens(predicted_tokens), 'acc 1')
+                    accuracy_df = pd.concat([accuracy_df,
+                                            pd.DataFrame({'subject': subject,
+                                                         'source_layer': source_layer,
+                                                         'accuracy': 1},
+                                                         index=[0])
+                    ])
+                elif target_layer==len(target_layers)-1:
+                    print(target_model.to_str_tokens(predicted_tokens), 'acc 0')
+                    accuracy_df = pd.concat([accuracy_df,
+                                            pd.DataFrame({'subject': subject,
+                                                         'source_layer': source_layer,
+                                                         'accuracy': 0},
+                                                         index=[0])
+                    ])
 
-        
-        # plot
-        # save plot
+
+    fig = sns.relplot(
+        data=accuracy_df, kind="line",
+        x="source_layer", y="accuracy"
+    )
+    print(accuracy_df['subject'].value_counts())
+    fig.savefig(f"figures/extraction_of_specific_attributes_{opt.task}.png")
+    accuracy_df.to_csv(f'data/extraction_accuracies_{opt.task}.csv', index=False)
 
     return
 
@@ -141,15 +149,14 @@ def patch_activations(
     target_layer: int,
     target_prompt: str,
     source_cache: ActivationCache,
-    activation_type: str = 'resid_pre',
-    max_new_tokens: int = 20
+    activation_type: str = 'resid_pre'
 ):
     """
     Patches an activation vector into the target model.
     """
 
     source_cache = source_cache[activation_type, source_layer]
-    predicted_tokens = []
+    predicted_tokens = torch.Tensor()
 
     def hook_fn(target_activations: Float[Tensor, '...'],
                 hook: HookPoint
@@ -159,23 +166,18 @@ def patch_activations(
 
     #target_prompt = target_model.generate(target_prompt, max_new_tokens=20)
 
-    for i in range (0, max_new_tokens):
-        print('i', i)   
-        target_logits = target_model.run_with_hooks(
-            target_prompt,
-            return_type="logits",
-            fwd_hooks=[
-                (get_act_name(activation_type, target_layer), hook_fn)
-            ]
-        )
-        prediction = target_logits.argmax(dim=-1).squeeze()[:-1]
-        predicted_tokens.append(prediction)
-        target_prompt = target_prompt + target_model.to_string(prediction)
-        print(target_prompt)
+    target_logits = target_model.run_with_hooks(
+        target_prompt,
+        return_type="logits",
+        fwd_hooks=[
+            (get_act_name(activation_type, target_layer), hook_fn)
+        ]
+    )
+    prediction = target_logits.argmax(dim=-1).squeeze()[:-1]
+    predicted_tokens = torch.cat((predicted_tokens, prediction))
+    target_prompt = target_prompt + target_model.to_string(prediction)
+    #print('target_prompt', target_prompt)
 
-
-    #print('Target model output :', target_model.to_string(prediction))
-    print(target_model.to_str_tokens(target_model.to_string(target_prompt)))
     return predicted_tokens
 
 
@@ -202,4 +204,4 @@ def get_target_prompt_from_task(task='country_currency'):
         relations_dict = json.load(f)
         target_prompt = relations_dict['prompt_templates'][0]
 
-    return target_prompt.split("{}")[0] + 'x'
+    return target_prompt.split("{}")[0] #+ 'x'
