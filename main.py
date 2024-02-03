@@ -5,11 +5,11 @@ import torch
 if __name__ == '__main__':
 
     opt = BaseOptions().parse()
-    print('\nPatchscope options\n------------------')
+    print('\nPatchscopes options\n-------------------')
     print(''.join(f'{k} = {v}\n' for k, v in vars(opt).items()))
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    print('device =', device, '\n------------------')
+    print('device =', device, '\n-------------------')
 
     if opt.experiment=='extraction':
         extraction_of_specific_attributes(opt, device)

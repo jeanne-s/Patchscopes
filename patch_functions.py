@@ -3,12 +3,14 @@ from transformer_lens import utils, HookedTransformer, ActivationCache, patching
 from transformer_lens.hook_points import HookPoint
 from transformer_lens.utils import get_act_name
 import torch
+from tqdm import tqdm
 from torch import Tensor
 from jaxtyping import Int, Float
 from typing import List, Optional, Tuple
 import seaborn as sns
 import matplotlib.pyplot as plt
 from data import *
+from array import array
 
 
 def patchscope(opt, 
@@ -91,15 +93,16 @@ def extraction_of_specific_attributes(opt, device):
         
             for target_layer in target_layers: 
 
-                predicted_tokens, _ = patch_activations(
-                                        target_model=target_model, 
-                                        source_position=source_position, 
-                                        source_layer=source_layer, 
-                                        target_position=target_position,
-                                        target_layer=target_layer,
-                                        target_prompt=target_prompt, 
-                                        source_cache=source_cache
-                )
+                with torch.no_grad():
+                    predicted_tokens, _ = patch_activations(
+                                            target_model=target_model, 
+                                            source_position=source_position, 
+                                            source_layer=source_layer, 
+                                            target_position=target_position,
+                                            target_layer=target_layer,
+                                            target_prompt=target_prompt, 
+                                            source_cache=source_cache
+                    )
                 
                 predicted_tokens = predicted_tokens.to(torch.int)
                 if target_model.to_tokens(object)[-1][-1].item() in predicted_tokens:
@@ -131,55 +134,73 @@ def extraction_of_specific_attributes(opt, device):
     return
 
 
-def logitlens(opt, device):
+def logitlens(opt, device, nb_positions=10):
     
     source_model = get_model(opt.source_model, device)
     target_model = get_model(opt.source_model, device)
 
-    source_prompt = target_prompt = """Recent work has demonstrated substantial gains on many NLP tasks and benchmarks by pre-training
-    on a large corpus of text followed by fine-tuning on a specific task. While typically task-agnostic
-    in architecture, this method still requires task-specific fine-tuning datasets of thousands or tens of
-    thousands of examples. By contrast, humans can generally perform a new language task from only
-    a few examples or from simple instructions – something which current NLP systems still largely
-    struggle to do. Here we show that scaling up language models greatly improves task-agnostic,
-    few-shot performance, sometimes even reaching competitiveness with prior state-of-the-art finetuning approaches. Specifically, we train GPT-3, an autoregressive language model with 175 billion
-    parameters,""".replace("\n", " ")
+    source_prompt = target_prompt = """Recent work has demonstrated substantial gains on many NLP tasks
+    and benchmarks by pre-training on a large corpus of text followed by fine-tuning on a specific task.
+    While typically task-agnostic in architecture, this method still requires task-specific fine-tuning
+    datasets of thousands or tens of thousands of examples. By contrast, humans can generally perform a
+    new language task from only a few examples or from simple instructions – something which current NLP
+    systems still largely struggle to do. Here we show that scaling up language models greatly improves
+    task-agnostic, few-shot performance, sometimes even reaching competitiveness with prior state-of-the-art
+    finetuning approaches. Specifically, we train GPT-3, an autoregressive language model with 175 billion
+    parameters,""".replace("\n    ", " ")
+    #source_prompt = target_prompt = """I love plasma. I love plasma. I love plasma. I love plasma."""
 
-    logits_df = pd.DataFrame(columns=['layer', 'position', 'logit', 'token'])
+    logits_df = pd.DataFrame(columns=['layer', 'position', 'logit', 'str_token'])
 
     _, source_cache = source_model.run_with_cache(source_prompt)
     source_tokens = source_model.to_tokens(source_prompt)
     nb_tokens = source_tokens.shape[-1]
-    source_positions = np.arange(nb_tokens-10, nb_tokens, 1)
+    source_positions = np.arange(nb_tokens-nb_positions-1, nb_tokens-1, 1)
     source_layers = np.arange(0, source_model.cfg.n_layers, dtype=int)
 
-    for source_position in source_positions:
-        print(source_position)
+    for source_position in tqdm(source_positions):
 
         for source_layer in source_layers:
 
-            predicted_tokens, target_logits = patch_activations(
-                target_model=target_model, 
-                source_position=source_position, 
-                source_layer=source_layer, 
-                target_position=source_position,
-                target_layer=source_model.cfg.n_layers-1,
-                target_prompt=target_prompt, 
-                source_cache=source_cache
-            )
+            with torch.no_grad():
+                predicted_tokens, target_logits = patch_activations(
+                    target_model=target_model, 
+                    source_position=source_position, 
+                    source_layer=source_layer, 
+                    target_position=source_position,
+                    target_layer=source_model.cfg.n_layers-1,
+                    target_prompt=target_prompt, 
+                    source_cache=source_cache,
+                    activation_type='resid_post'
+                )
+                predicted_tokens = predicted_tokens.to(torch.int)
         
-            next_logit = torch.max(target_logits[0, source_position, :])
+                next_logit = torch.max(target_logits[0, source_position, :])
+
             logits_df = pd.concat([logits_df,
                                    pd.DataFrame({'layer': source_layer,
                                                  'position': source_position,
                                                  'logit': next_logit,
-                                                 'token': predicted_tokens[source_position].item()},
+                                                 'str_token': target_model.to_str_tokens(predicted_tokens[source_position])},
                                                  index=[0])
-                    ])
+                        ])
     
     df_wide = logits_df.pivot_table(index='layer', columns='position', values='logit')
 
-    fig = sns.heatmap(df_wide, annot=True)
+    annot = []
+    for x in range(0, df_wide.shape[0]):
+        layer_list = []
+        for y in range(0, nb_positions):
+            str_token = logits_df[(logits_df['layer']==x)&(logits_df['position']==nb_tokens-nb_positions-1+y)]['str_token'].item()
+            layer_list.append(str_token)
+        annot.append(layer_list)
+    
+    x_axis_labels = [source_model.to_str_tokens(source_tokens[0, p]) for p in source_positions]
+
+    fig, ax = plt.subplots(figsize=(16,12))
+    fig = sns.heatmap(df_wide, annot=annot, fmt="", linewidths=.5, 
+                     ax=ax, xticklabels=x_axis_labels)
+    fig.invert_yaxis()
     plt.savefig("figures/logitlens_gpt-3.png")
     return 
 
@@ -216,8 +237,7 @@ def patch_activations(
         target_activations[:,target_position,:] = source_cache[:,source_position,:]
         return target_activations
 
-    #target_prompt = target_model.generate(target_prompt, max_new_tokens=20)
-
+    
     target_logits = target_model.run_with_hooks(
         target_prompt,
         return_type="logits",
