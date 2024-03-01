@@ -9,11 +9,11 @@ from jaxtyping import Int, Float
 from typing import List, Optional, Tuple
 import seaborn as sns
 import matplotlib.pyplot as plt
+from models import get_model_from_name
 from data import *
-from array import array
 
 
-def patchscope(opt, 
+def patchscopes_v1(opt, 
               device,
               ):
 
@@ -135,6 +135,9 @@ def extraction_of_specific_attributes(opt, device):
 
 
 def logitlens(opt, device, nb_positions=10):
+    """
+    Applies the logit lens (nostalgebraist 2020).
+    """
     
     source_model = get_model(opt.source_model, device)
     target_model = get_model(opt.source_model, device)
@@ -253,22 +256,6 @@ def patch_activations(
     return predicted_tokens, target_logits
 
 
-def model_sanity_check(model: HookedTransformer):
-    loss = evals.sanity_check(model)
-    if loss < 5:
-        print(f'{model.cfg.model_name} is probably OK.')
-    else:
-        print(f'{model.cfg.model_name} has a high loss. Maybe something went wrong.')
-    return
-
-
-def eval_pile_dataset(model: HookedTransformer):
-    pile_data_loader = evals.make_pile_data_loader(model.tokenizer, batch_size=8)
-    eval_result = evals.evaluate_on_dataset(model, pile_data_loader)
-    print("Eval on Pile dataset:", eval_result)
-    return
-
-
 def get_target_prompt_from_task(task='country_currency'):
     dataset_path = os.path.join('relations/data/', get_task_type(task)+'/')
     
@@ -277,3 +264,116 @@ def get_target_prompt_from_task(task='country_currency'):
         target_prompt = relations_dict['prompt_templates'][0]
 
     return target_prompt.split("{}")[0] #+ 'x'
+
+
+def get_layers_to_enumerate(model):
+    model_name = model.config._name_or_path
+    if 'gpt' in model_name:
+        return model.transformer.h
+    elif 'pythia' in model_name:
+        return model.gpt_neox.layers
+    elif 'bert' in model_name:
+        return model.encoder.layer
+    elif 'Mistral' in model_name:
+        return model.model.layers
+    else:
+        raise ValueError(f"Unsupported model: {model_name}.")
+
+
+def get_residual_stream_activations(model,
+                                    tokenizer,
+                                    prompt: str,
+                                    token_pos: int,
+                                    n_samples: int = 1
+):
+    """ Returns a torch.Tensor of activations. 
+
+    activations.shape = torch.Size([batch, num_hidden_layers, hidden_size])
+    """
+    input_ids = tokenizer.encode(prompt, return_tensors='pt', truncation=True)
+    activations = torch.zeros((input_ids.shape[0], input_ids.shape[1], model.config.num_hidden_layers, model.config.hidden_size)) # batch, seq, n_layers, d_model
+
+    def get_activation(layer_id):
+        def hook(model, input, output):
+            activations[:, :, layer_id, :] = output[0].detach()
+        return hook
+
+    layers_to_enum = get_layers_to_enumerate(model)
+    hooks = []
+    for i, layer in enumerate(layers_to_enum):
+        hook_handle = layer.register_forward_hook(get_activation(i))
+        hooks.append(hook_handle)
+
+    _ = model(input_ids)
+    for h in hooks:
+        h.remove()
+    return activations
+
+
+def apply_activation_patch(model, 
+                           tokenizer, 
+                           target_prompt,
+                           source_activations, #: Float[torch.Tensor, 'batch seq n_layers d_model'], 
+                           target_layer_idx: int = 2, 
+                           target_token_pos: int = -1, 
+):
+
+    def patch_activations(source_activations, 
+                          target_layer_idx, 
+                          target_token_idx):
+        def hook(module, input, output):
+            output[0][:, target_token_pos, :] = source_activations[:, target_token_pos, target_layer_idx, :]
+        return hook
+
+    input_ids = tokenizer(target_prompt, return_tensors="pt", truncation=True)
+    
+    layers = get_layers_to_enumerate(model)
+    target_layer = layers[target_layer_idx]
+    hook_handle = target_layer.register_forward_hook(
+        patch_activations(source_activations, target_layer_idx, target_token_pos)
+    )
+    
+    try:
+        with torch.no_grad():
+            tokens = model.generate(**input_ids)
+    finally:
+        hook_handle.remove()
+    
+    return tokens
+
+
+def patchscopes(source_model_name: str,
+                     target_model_name: str,
+                     source_prompt: str,
+                     target_prompt: str,
+                     source_token_pos: int,
+                     target_token_pos: int
+):
+
+    source_model, source_tokenizer = get_model_from_name(source_model_name)
+
+    if target_model_name == source_model_name:
+        target_model, target_tokenizer = source_model, source_tokenizer
+    else:
+        target_model, target_tokenizer = get_model_from_name(target_model_name)
+
+    target_layers = len(get_layers_to_enumerate(target_model))
+
+    source_activations = get_residual_stream_activations(model=source_model,
+                                                         tokenizer=source_tokenizer,
+                                                         prompt=source_prompt,
+                                                         token_pos=source_token_pos)
+
+
+    for layer in range(target_layers):
+        tokens = apply_activation_patch(model=target_model,
+                                        tokenizer=target_tokenizer,
+                                        target_prompt=target_prompt,
+                                        target_layer_idx=layer,
+                                        target_token_pos=target_token_pos,
+                                        source_activations=source_activations)
+
+        str_tokens = target_tokenizer.batch_decode(tokens)
+        print(f'Layer {layer} - {str_tokens}')
+    return
+

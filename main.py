@@ -17,4 +17,4 @@ if __name__ == '__main__':
         logitlens(opt, device)
 
     else:
-        patchscope(opt, device)
+        patchscopes(opt, device)

@@ -11,7 +11,6 @@ class BaseOptions():
                                 '-M', 
                                 type=str, 
                                 default='gpt2-small',
-                                choices=['gpt2-small', 'pythia-6.9b', 'gpt-j-6B'], 
                                 help='Source model architecture.')
 
         self.parser.add_argument('--target_model', 

@@ -84,7 +84,7 @@ def get_S_from_wikitext(subjects_list, objects_list, task):
                                                     pd.DataFrame(
                                                         {'subject': sub,
                                                         'object': obj, 
-                                                        'S': text[subj_index-max(0, subj_index-300): obj_index+len(obj)]},
+                                                        'S': text[subj_index-max(0, subj_index-100): obj_index+len(obj)]},
                                                         index=[0])
                             ])
                             samples_df.drop_duplicates() # removes duplicate rows
