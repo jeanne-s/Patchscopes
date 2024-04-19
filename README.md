@@ -30,7 +30,7 @@ See ```attribute_extraction.ipynb``` for a demo on how to run the code.
 
 ### Reproduction of Results From *Language Models Implement Simple Word2Vec-style Vector Arithmetic*
 
-[Language Models Implement Simple Word2Vec-style Vector Arithmetic](https://arxiv.org/abs/2305.16130) study the mechanisms through which LLMs recall information. 
+[Language Models Implement Simple Word2Vec-style Vector Arithmetic](https://arxiv.org/abs/2305.16130) study the mechanisms through which LLMs recall information (see Figure 7). 
 
 **Abstractive tasks** involve recalling a token that does *not* appear in the context, such as in:
 ```Q: What is the capital of Somalia?
