@@ -6,7 +6,7 @@ Re-implementation of the [Patchscopes](https://pair-code.github.io/interpretabil
 
 Patchscopes is a tool for inspecting hidden representations of transformer models.
 
-For decoding what is encoded in a given representation (for instance, the 'CEO' token in the figure under) activations from a source prompt ("Amazon's forer CEO attended Oscars") are patched in a target prompt("cat->cat; 135->135; hello->hello; ?"). The target prompt is designed with few-shot examples of token repetitions to encourage decoding the token identity given a hidden representation.
+For decoding what is encoded in a given representation (for instance, the ```CEO``` token in the figure under) activations from a source prompt (```Amazon's forer CEO attended Oscars```) are patched in a target prompt(```cat->cat; 135->135; hello->hello; ?```). The target prompt is designed with few-shot examples of token repetitions to encourage decoding the token identity given a hidden representation.
 
 
 <p align="center">
@@ -15,6 +15,8 @@ For decoding what is encoded in a given representation (for instance, the 'CEO' 
 
 
 ### Demo
+
+See ```attribute_extraction.ipynb``` for a demo on how to run the code.
 
 **Source prompt:** ```Amazon's former CEO attended Oscars```\
 **Source token:** ```CEO```\
