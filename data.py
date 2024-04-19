@@ -124,4 +124,3 @@ if __name__ == '__main__':
     subjects_list, objects_list, relation = get_subobj_from_json()
     get_S_from_wikitext(subjects_list, objects_list, task='country_currency')
 
-    #clean_input_prompts()
