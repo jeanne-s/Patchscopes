@@ -26,3 +26,38 @@ See ```attribute_extraction.ipynb``` for a demo on how to run the code.
 #### gpt2-small
 
 <img src="assets/attribute_extraction_fig1_gpt2.png" width="900">
+
+
+### Reproduction of Results From *Language Models Implement Simple Word2Vec-style Vector Arithmetic*
+
+[Language Models Implement Simple Word2Vec-style Vector Arithmetic](https://arxiv.org/abs/2305.16130) study the mechanisms through which LLMs recall information. 
+
+**Abstractive tasks** involve recalling a token that does *not* appear in the context, such as in:
+```Q: What is the capital of Somalia?
+A: Mogadishu
+Q: What is the capital of Poland?
+A:
+``` 
+The authors provide evidence that transformers recall tokens that do *not* appear in the context through 3 stages of processing:
+1. **Argument Formation (A)**: the model represents the argument to the desired relation in the residual stream (the ‘*Poland’* in *get_capital(Poland)*) - Layers 9-17
+2. **Function Application (B)**: the model switches from the argument to the output of the function (the ‘*Warsaw*’ in *Warsaw= get_capital(Poland)*) - Layer 18
+3. **Saturation (C)**: the model recognizes it has solved the next token and ceases updating the representation - Layer 19-22
+
+Here on gpt2-medium:
+<img src="assets/abstractive_task_gpt2-medium.png" width="900">
+
+
+**Extractive tasks**, on the contrary, require finding a token that *does* appear in context, such as in:
+```The capital of Somalia is Mogadishu.
+The capital of Poland is Warsaw.
+Q: What is the capital of Somalia?
+A: Mogadishu
+Q: What is the capital of Poland?
+A:
+```
+The extractive tasks imediately saturates.
+
+Here on gpt2-medium:
+<img src="assets/extractive_task_gpt2-medium.png" width="900">
+
+
