@@ -37,6 +37,7 @@ class AttributeExtraction():
 
     def get_source_token_position(self) -> int:
         """ Get the position of the source token in the input prompt.
+        If the source token is present multiple times in the input prompt, we consider the position of its last occurrence.
         """
         tokenized_input_prompt: list[int] = self.source_tokenizer(self.input_prompt, return_tensors='pt', truncation=True)['input_ids'][0].tolist()
         source_token: Union[int, list[int]] = self.source_tokenizer(self.source_str_token, return_tensors='pt', truncation=True)['input_ids'][0].tolist()
@@ -45,7 +46,9 @@ class AttributeExtraction():
         if isinstance(source_token, list):
             source_token = source_token[-1]
 
-        return tokenized_input_prompt.index(source_token)
+        indices = [i for i in range(len(tokenized_input_prompt)) if tokenized_input_prompt[i] == source_token]
+
+        return indices[-1] #tokenized_input_prompt.index(source_token)
 
 
     def get_source_model_activations_on_input_prompt(self) -> torch.Tensor:
