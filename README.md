@@ -28,7 +28,7 @@ See ```attribute_extraction.ipynb``` for a demo on how to run the code.
 <img src="assets/attribute_extraction_fig1_gpt2.png" width="900">
 
 
-### Reproduction of Results From *Language Models Implement Simple Word2Vec-style Vector Arithmetic*
+### Reproduction of Experiments From *Language Models Implement Simple Word2Vec-style Vector Arithmetic*
 
 [Language Models Implement Simple Word2Vec-style Vector Arithmetic](https://arxiv.org/abs/2305.16130) study the mechanisms through which LLMs recall information (see Figure 7). 
 
