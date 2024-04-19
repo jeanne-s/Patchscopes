@@ -55,7 +55,7 @@ A: Mogadishu
 Q: What is the capital of Poland?
 A:
 ```
-The extractive tasks imediately saturates.
+The extractive tasks immediately saturates.
 
 Here on gpt2-medium:
 <img src="assets/extractive_task_gpt2-medium.png" width="900">
